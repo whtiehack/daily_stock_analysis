@@ -756,9 +756,12 @@ def render_config_page(
         
         let detailHtml = '';
         if (status === 'completed') {
+            const showFull = task.notify === false;
+            const summary = result.analysis_summary || '';
+            const displaySummary = showFull ? summary : (summary.substring(0, 100) + '...');
             detailHtml = '<div class="task-detail" id="detail_' + taskId + '">' +
                 '<div class="task-detail-row"><span class="label">趋势</span><span>' + (result.trend_prediction || '-') + '</span></div>' +
-                (result.analysis_summary ? '<div class="task-detail-summary">' + result.analysis_summary.substring(0, 100) + '...</div>' : '') +
+                (summary ? '<div class="task-detail-summary">' + displaySummary + '</div>' : '') +
                 '</div>';
         }
         
@@ -905,7 +908,8 @@ def render_config_page(
                             code: code,
                             status: 'running',
                             start_time: new Date().toISOString(),
-                            report_type: reportType
+                            report_type: reportType,
+                            notify: notify
                         },
                         pollCount: 0
                     });
