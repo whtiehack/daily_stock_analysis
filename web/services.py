@@ -281,6 +281,7 @@ class AnalysisService:
                     "operation_advice": result.operation_advice,
                     "trend_prediction": result.trend_prediction,
                     "analysis_summary": result.analysis_summary,
+                    "dashboard": result.dashboard,
                 }
                 
                 with self._tasks_lock:

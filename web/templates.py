@@ -569,6 +569,50 @@ button:active {
     border-radius: 0.25rem;
     line-height: 1.4;
 }
+
+.task-detail-section {
+    margin-top: 0.5rem;
+    padding: 0.4rem;
+    background: white;
+    border-radius: 0.25rem;
+    border-left: 3px solid var(--primary);
+}
+.task-detail-section.risk {
+    border-left-color: var(--error);
+    background: #fef2f2;
+}
+.task-detail-section.catalyst {
+    border-left-color: var(--success);
+    background: #ecfdf5;
+}
+.task-detail-label {
+    font-weight: 600;
+    font-size: 0.7rem;
+    color: var(--text-light);
+    margin-bottom: 0.25rem;
+}
+.task-detail-item {
+    font-size: 0.72rem;
+    line-height: 1.4;
+    padding: 0.15rem 0;
+}
+.task-detail-item.risk-item {
+    color: var(--error);
+}
+.task-detail-item.catalyst-item {
+    color: var(--success);
+}
+.task-detail-points {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.task-detail-point {
+    background: rgba(0,0,0,0.05);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+}
 """
 
 
@@ -758,11 +802,82 @@ def render_config_page(
         if (status === 'completed') {
             const showFull = task.notify === false;
             const summary = result.analysis_summary || '';
-            const displaySummary = showFull ? summary : (summary.substring(0, 100) + '...');
-            detailHtml = '<div class="task-detail" id="detail_' + taskId + '">' +
-                '<div class="task-detail-row"><span class="label">趋势</span><span>' + (result.trend_prediction || '-') + '</span></div>' +
-                (summary ? '<div class="task-detail-summary">' + displaySummary + '</div>' : '') +
-                '</div>';
+            const displaySummary = showFull ? summary : (summary.length > 100 ? summary.substring(0, 100) + '...' : summary);
+
+            // 提取 dashboard 数据
+            const dashboard = result.dashboard || {};
+            const core = dashboard.core_conclusion || {};
+            const intel = dashboard.intelligence || {};
+            const battle = dashboard.battle_plan || {};
+            const sniper = battle.sniper_points || {};
+            const posAdvice = core.position_advice || {};
+
+            let detailContent = '';
+
+            // 1. 核心结论
+            if (core.one_sentence) {
+                detailContent += '<div class="task-detail-row"><span class="label">核心结论</span><span>' + core.one_sentence + '</span></div>';
+            }
+
+            // 2. 趋势预测
+            detailContent += '<div class="task-detail-row"><span class="label">趋势</span><span>' + (result.trend_prediction || '-') + '</span></div>';
+
+            // 3. 操作点位
+            if (sniper.ideal_buy || sniper.stop_loss || sniper.take_profit) {
+                detailContent += '<div class="task-detail-section"><div class="task-detail-label">🎯 操作点位</div><div class="task-detail-points">';
+                if (sniper.ideal_buy) detailContent += '<span class="task-detail-point">买入: ' + sniper.ideal_buy + '</span>';
+                if (sniper.stop_loss) detailContent += '<span class="task-detail-point">止损: ' + sniper.stop_loss + '</span>';
+                if (sniper.take_profit) detailContent += '<span class="task-detail-point">目标: ' + sniper.take_profit + '</span>';
+                detailContent += '</div></div>';
+            }
+
+            // 4. 持仓建议
+            if (posAdvice.no_position || posAdvice.has_position) {
+                detailContent += '<div class="task-detail-section"><div class="task-detail-label">💼 持仓建议</div>';
+                if (posAdvice.no_position) detailContent += '<div class="task-detail-item">🆕 空仓: ' + posAdvice.no_position + '</div>';
+                if (posAdvice.has_position) detailContent += '<div class="task-detail-item">📦 持仓: ' + posAdvice.has_position + '</div>';
+                detailContent += '</div>';
+            }
+
+            // 5. 舆情情报
+            let intelContent = '';
+            if (intel.earnings_outlook) {
+                const outlook = intel.earnings_outlook.length > 60 ? intel.earnings_outlook.substring(0, 60) + '...' : intel.earnings_outlook;
+                intelContent += '<div class="task-detail-item">📊 业绩: ' + outlook + '</div>';
+            }
+            if (intel.sentiment_summary) {
+                intelContent += '<div class="task-detail-item">💭 舆情: ' + intel.sentiment_summary + '</div>';
+            }
+            if (intelContent) {
+                detailContent += '<div class="task-detail-section"><div class="task-detail-label">📰 情报</div>' + intelContent + '</div>';
+            }
+
+            // 6. 风险警报
+            const riskAlerts = intel.risk_alerts || [];
+            if (riskAlerts.length > 0) {
+                detailContent += '<div class="task-detail-section risk"><div class="task-detail-label">⚠️ 风险警报</div>';
+                riskAlerts.slice(0, 3).forEach(function(alert) {
+                    detailContent += '<div class="task-detail-item risk-item">' + alert + '</div>';
+                });
+                detailContent += '</div>';
+            }
+
+            // 7. 利好催化
+            const catalysts = intel.positive_catalysts || [];
+            if (catalysts.length > 0) {
+                detailContent += '<div class="task-detail-section catalyst"><div class="task-detail-label">✨ 利好催化</div>';
+                catalysts.slice(0, 3).forEach(function(cat) {
+                    detailContent += '<div class="task-detail-item catalyst-item">' + cat + '</div>';
+                });
+                detailContent += '</div>';
+            }
+
+            // 8. 分析摘要
+            if (summary) {
+                detailContent += '<div class="task-detail-summary">' + displaySummary + '</div>';
+            }
+
+            detailHtml = '<div class="task-detail" id="detail_' + taskId + '">' + detailContent + '</div>';
         }
         
         return '<div class="task-card ' + status + '" id="task_' + taskId + '" onclick="toggleDetail(\\''+taskId+'\\')">' +
