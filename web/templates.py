@@ -843,7 +843,9 @@ def render_config_page(
                     .then(r => r.json())
                     .then(data => {
                         if (data.success && data.task) {
+                            const savedNotify = taskData.task?.notify;
                             taskData.task = data.task;
+                            taskData.task.notify = savedNotify;
                             renderAllTasks();
                         }
                     })
@@ -924,7 +926,9 @@ def render_config_page(
                             .then(r => r.json())
                             .then(d => {
                                 if (d.success && d.task) {
+                                    const savedNotify = tasks.get(taskId).task?.notify;
                                     tasks.get(taskId).task = d.task;
+                                    tasks.get(taskId).task.notify = savedNotify;
                                     renderAllTasks();
                                 }
                             });
