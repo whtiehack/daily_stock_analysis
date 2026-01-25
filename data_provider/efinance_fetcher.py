@@ -72,12 +72,20 @@ def _patch_efinance_api_host():
         original_get = ef.shared.session.get
 
         def patched_get(url, *args, **kwargs):
-            # 替换所有 push2.eastmoney.com 和 2.push2.eastmoney.com
-            if 'push2.eastmoney.com' in url:
-                new_url = url.replace('push2.eastmoney.com', target_host)
-                new_url = new_url.replace('2.' + target_host, target_host)  # 处理 2.push2 的情况
-                logger.debug(f"[EfinancePatch] URL 重写: {url} -> {new_url}")
-                url = new_url
+            # 替换所有东方财富 API 域名
+            # push2.eastmoney.com - 实时行情
+            # push2his.eastmoney.com - 历史数据
+            original_url = url
+            if 'push2his.eastmoney.com' in url:
+                # 历史数据接口: push2his -> push2delay
+                url = url.replace('push2his.eastmoney.com', target_host)
+            elif 'push2.eastmoney.com' in url:
+                # 实时行情接口
+                url = url.replace('push2.eastmoney.com', target_host)
+                url = url.replace('2.' + target_host, target_host)  # 处理 2.push2 的情况
+
+            if url != original_url:
+                logger.debug(f"[EfinancePatch] URL 重写: {original_url} -> {url}")
             return original_get(url, *args, **kwargs)
 
         ef.shared.session.get = patched_get
