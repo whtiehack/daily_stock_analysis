@@ -168,7 +168,11 @@ class YfinanceFetcher(BaseFetcher):
         date, open, high, low, close, volume, amount, pct_chg
         """
         df = df.copy()
-        
+
+        # 处理 yfinance 新版本的 MultiIndex 列名
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
         # 重置索引，将日期从索引变为列
         df = df.reset_index()
         

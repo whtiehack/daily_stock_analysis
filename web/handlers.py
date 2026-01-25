@@ -175,10 +175,16 @@ class ApiHandler:
         code = code_list[0].strip()
 
         # 验证股票代码格式：A股(6位数字) / 港股(hk+5位数字) / 美股(1-5个大写字母)
-        code = code.lower()
+        # 美股保持大写，其他转小写
+        is_us_stock = re.match(r'^[A-Za-z]{1,5}(\.[A-Za-z])?$', code)
+        if is_us_stock:
+            code = code.upper()
+        else:
+            code = code.lower()
+
         is_a_stock = re.match(r'^\d{6}$', code)
         is_hk_stock = re.match(r'^hk\d{5}$', code)
-        is_us_stock = re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', code.upper())
+        is_us_stock = re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', code)
 
         if not (is_a_stock or is_hk_stock or is_us_stock):
             return JsonResponse(

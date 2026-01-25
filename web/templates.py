@@ -643,13 +643,19 @@ def render_config_page(
     const MAX_POLL_COUNT = 120; // 6 分钟超时：120 * 3000ms = 360000ms
     const POLL_INTERVAL_MS = 3000;
     const MAX_TASKS_DISPLAY = 10;
-    
-    // 允许输入数字和字母（支持港股 hkxxxxx 格式）
+
+    // 允许输入数字和字母（支持 A股/港股/美股）
     codeInput.addEventListener('input', function(e) {
-        // 转小写，只保留字母和数字
-        this.value = this.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+        // 只保留字母和数字
+        this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
         if (this.value.length > 8) {
             this.value = this.value.slice(0, 8);
+        }
+        // 纯字母(美股)转大写，含数字(A股/港股)转小写
+        if (/^[a-zA-Z]+$/.test(this.value)) {
+            this.value = this.value.toUpperCase();
+        } else {
+            this.value = this.value.toLowerCase();
         }
         updateButtonState();
     });
@@ -663,13 +669,14 @@ def render_config_page(
             }
         }
     });
-    
-    // 更新按钮状态 - 支持 A股(6位数字) 或 港股(hk+5位数字)
+
+    // 更新按钮状态 - 支持 A股(6位数字) / 港股(hk+5位数字) / 美股(1-5个字母)
     function updateButtonState() {
-        const code = codeInput.value.trim().toLowerCase();
+        const code = codeInput.value.trim();
         const isAStock = /^\\d{6}$/.test(code);           // A股: 600519
-        const isHKStock = /^hk\\d{5}$/.test(code);        // 港股: hk00700
-        submitBtn.disabled = !(isAStock || isHKStock);
+        const isHKStock = /^hk\\d{5}$/i.test(code);       // 港股: hk00700
+        const isUSStock = /^[A-Za-z]{1,5}$/.test(code);   // 美股: AAPL
+        submitBtn.disabled = !(isAStock || isHKStock || isUSStock);
     }
     
     // 格式化时间
@@ -845,17 +852,21 @@ def render_config_page(
             pollInterval = setInterval(pollAllTasks, POLL_INTERVAL_MS);
         }
     }
-    
+
     // 提交分析
     window.submitAnalysis = function() {
-        const code = codeInput.value.trim().toLowerCase();
+        let code = codeInput.value.trim();
         const isAStock = /^\d{6}$/.test(code);
-        const isHKStock = /^hk\d{5}$/.test(code);
-        
-        if (!(isAStock || isHKStock)) {
+        const isHKStock = /^hk\d{5}$/i.test(code);
+        const isUSStock = /^[A-Za-z]{1,5}$/.test(code);
+
+        if (!(isAStock || isHKStock || isUSStock)) {
             return;
         }
-        
+
+        // 美股保持大写，A股/港股转小写
+        code = isUSStock ? code.toUpperCase() : code.toLowerCase();
+
         submitBtn.disabled = true;
         submitBtn.textContent = '提交中...';
         
