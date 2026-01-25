@@ -54,6 +54,63 @@ RealtimeQuote = UnifiedRealtimeQuote
 logger = logging.getLogger(__name__)
 
 
+# === 东方财富 API URL 配置（akshare）===
+# akshare 库使用 NN.push2.eastmoney.com 格式的域名
+def _patch_akshare_api_host():
+    """
+    Monkey patch akshare 库的 API 主机地址
+
+    akshare 使用 akshare.utils.request.request_with_retry 发送请求，
+    通过替换该函数实现 URL 重写
+
+    注意：
+    1. 只有配置了 EASTMONEY_API_HOST 环境变量时才执行 patch
+    2. 需要同时 patch akshare.utils.request 和 akshare.utils.func 模块
+       因为 func.py 使用 from ... import 静态导入
+    """
+    try:
+        import re
+        import akshare.utils.request as ak_request
+        import akshare.utils.func as ak_func
+        from src.config import get_config
+
+        config = get_config()
+        target_host = config.eastmoney_api_host
+
+        # 未配置时不执行 patch
+        if not target_host:
+            return
+
+        original_request = ak_request.request_with_retry
+
+        def patched_request(url, params=None, timeout=15, max_retries=3, **kwargs):
+            original_url = url
+            # 替换所有东方财富 API 域名
+            # 格式: NN.push2.eastmoney.com, push2his.eastmoney.com, push2ex.eastmoney.com
+            if 'eastmoney.com' in url:
+                # 使用正则替换所有 *.push2*.eastmoney.com 格式
+                url = re.sub(
+                    r'(\d+\.)?push2(his|ex)?\.eastmoney\.com',
+                    target_host,
+                    url
+                )
+                if url != original_url:
+                    logger.debug(f"[AksharePatch] URL 重写: {original_url} -> {url}")
+            return original_request(url, params, timeout, max_retries, **kwargs)
+
+        # 同时替换两个模块的引用
+        ak_request.request_with_retry = patched_request
+        ak_func.request_with_retry = patched_request
+        logger.info(f"[AksharePatch] 已将 akshare API 主机替换为: {target_host}")
+
+    except Exception as e:
+        logger.warning(f"[AksharePatch] Monkey patch 失败: {e}")
+
+
+# 模块加载时执行 patch
+_patch_akshare_api_host()
+
+
 # User-Agent 池，用于随机轮换
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
