@@ -138,6 +138,11 @@ class Config:
     # 熔断器冷却时间（秒）
     circuit_breaker_cooldown: int = 300
 
+    # 东方财富 API 主机配置（用于 efinance 库）
+    # 不配置: 使用 efinance 原生 URL（push2.eastmoney.com）
+    # 配置为 push2delay.eastmoney.com: 使用延迟接口（部分服务器需要）
+    eastmoney_api_host: Optional[str] = None
+
     # Discord 机器人状态
     discord_bot_status: str = "A股智能分析 | /help"
 
@@ -368,7 +373,8 @@ class Config:
             # - efinance/akshare_em: 全量拉取，数据丰富但负载大
             realtime_source_priority=os.getenv('REALTIME_SOURCE_PRIORITY', 'akshare_sina,tencent,efinance,akshare_em'),
             realtime_cache_ttl=int(os.getenv('REALTIME_CACHE_TTL', '600')),
-            circuit_breaker_cooldown=int(os.getenv('CIRCUIT_BREAKER_COOLDOWN', '300'))
+            circuit_breaker_cooldown=int(os.getenv('CIRCUIT_BREAKER_COOLDOWN', '300')),
+            eastmoney_api_host=os.getenv('EASTMONEY_API_HOST'),  # None 表示不 patch
         )
     
     @classmethod

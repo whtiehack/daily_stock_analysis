@@ -44,6 +44,52 @@ from .realtime_types import (
     safe_float, safe_int  # 使用统一的类型转换函数
 )
 
+logger = logging.getLogger(__name__)
+
+
+# === 东方财富 API URL 配置 ===
+# efinance 库硬编码了 push2.eastmoney.com，通过 monkey patch 支持自定义
+def _patch_efinance_api_host():
+    """
+    Monkey patch efinance 库的 API 主机地址
+
+    efinance 内部使用 ef.shared.session 发送请求，
+    通过替换 session.get 方法实现 URL 重写
+
+    注意：只有配置了 EASTMONEY_API_HOST 环境变量时才执行 patch
+    """
+    try:
+        import efinance as ef
+        from src.config import get_config
+
+        config = get_config()
+        target_host = config.eastmoney_api_host
+
+        # 未配置时不执行 patch，使用 efinance 原生 URL
+        if not target_host:
+            return
+
+        original_get = ef.shared.session.get
+
+        def patched_get(url, *args, **kwargs):
+            # 替换所有 push2.eastmoney.com 和 2.push2.eastmoney.com
+            if 'push2.eastmoney.com' in url:
+                new_url = url.replace('push2.eastmoney.com', target_host)
+                new_url = new_url.replace('2.' + target_host, target_host)  # 处理 2.push2 的情况
+                logger.debug(f"[EfinancePatch] URL 重写: {url} -> {new_url}")
+                url = new_url
+            return original_get(url, *args, **kwargs)
+
+        ef.shared.session.get = patched_get
+        logger.info(f"[EfinancePatch] 已将 efinance API 主机替换为: {target_host}")
+
+    except Exception as e:
+        logger.warning(f"[EfinancePatch] Monkey patch 失败: {e}")
+
+
+# 模块加载时执行 patch
+_patch_efinance_api_host()
+
 
 # 保留旧的类型别名，用于向后兼容
 @dataclass
@@ -86,9 +132,6 @@ class EfinanceRealtimeQuote:
             'low': self.low,
             'open': self.open_price,
         }
-
-
-logger = logging.getLogger(__name__)
 
 
 # User-Agent 池，用于随机轮换

@@ -70,3 +70,4 @@ verify_*.py
 
 # Trae IDE
 .trae/
+.ace-tool/
