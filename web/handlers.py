@@ -195,10 +195,14 @@ class ApiHandler:
         # 获取报告类型参数（默认精简报告）
         report_type_str = query.get("report_type", ["simple"])[0]
         report_type = ReportType.from_str(report_type_str)
-        
+
+        # 获取推送通知参数（默认启用）
+        notify_str = query.get("notify", ["true"])[0].lower()
+        notify = notify_str != "false"
+
         # 提交异步分析任务
         try:
-            result = self.analysis_service.submit_analysis(code, report_type=report_type)
+            result = self.analysis_service.submit_analysis(code, report_type=report_type, notify=notify)
             return JsonResponse(result)
         except Exception as e:
             logger.error(f"[ApiHandler] 提交分析任务失败: {e}")

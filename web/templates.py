@@ -265,6 +265,28 @@ button:active {
     transform: none;
 }
 
+/* Notify option */
+.notify-option {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--text-light);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+}
+
 /* Result box */
 .result-box {
     margin-top: 1rem;
@@ -636,6 +658,7 @@ def render_config_page(
     const submitBtn = document.getElementById('analysis_btn');
     const taskList = document.getElementById('task_list');
     const reportTypeSelect = document.getElementById('report_type');
+    const notifyCheckbox = document.getElementById('notify_checkbox');
     
     // 任务管理
     const tasks = new Map(); // taskId -> {task, pollCount}
@@ -869,9 +892,10 @@ def render_config_page(
 
         submitBtn.disabled = true;
         submitBtn.textContent = '提交中...';
-        
+
         const reportType = reportTypeSelect.value;
-        fetch('/analysis?code=' + encodeURIComponent(code) + '&report_type=' + encodeURIComponent(reportType))
+        const notify = notifyCheckbox.checked;
+        fetch('/analysis?code=' + encodeURIComponent(code) + '&report_type=' + encodeURIComponent(reportType) + '&notify=' + notify)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -944,6 +968,12 @@ def render_config_page(
           <button type="button" id="analysis_btn" class="btn-analysis" onclick="submitAnalysis()" disabled>
             🚀 分析
           </button>
+        </div>
+        <div class="notify-option">
+          <label class="checkbox-label">
+            <input type="checkbox" id="notify_checkbox" checked />
+            <span>推送通知</span>
+          </label>
         </div>
       </div>
       
