@@ -53,12 +53,14 @@ def _patch_efinance_api_host():
     """
     Monkey patch efinance 库的 API 主机地址
 
-    efinance 内部使用 ef.shared.session 发送请求，
-    通过替换 session.get 方法实现 URL 重写
+    efinance 内部使用 ef.shared.session (CustomedSession) 发送请求，
+    CustomedSession 继承自 requests.Session，get() 内部调用 request()，
+    因此需要 patch request 方法才能拦截所有请求
 
     注意：只有配置了 EASTMONEY_API_HOST 环境变量时才执行 patch
     """
     try:
+        import re
         import efinance as ef
         from src.config import get_config
 
@@ -69,26 +71,23 @@ def _patch_efinance_api_host():
         if not target_host:
             return
 
-        original_get = ef.shared.session.get
+        # patch session.request 方法（get/post 等都会调用它）
+        original_request = ef.shared.session.request
 
-        def patched_get(url, *args, **kwargs):
+        def patched_request(method, url, *args, **kwargs):
             # 替换所有东方财富 API 域名
-            # push2.eastmoney.com - 实时行情
-            # push2his.eastmoney.com - 历史数据
             original_url = url
-            if 'push2his.eastmoney.com' in url:
-                # 历史数据接口: push2his -> push2delay
-                url = url.replace('push2his.eastmoney.com', target_host)
-            elif 'push2.eastmoney.com' in url:
-                # 实时行情接口
-                url = url.replace('push2.eastmoney.com', target_host)
-                url = url.replace('2.' + target_host, target_host)  # 处理 2.push2 的情况
+            if 'eastmoney.com' in url:
+                url = re.sub(
+                    r'(\d+\.)?push2(his|ex)?\.eastmoney\.com',
+                    target_host,
+                    url
+                )
+                if url != original_url:
+                    logger.debug(f"[EfinancePatch] URL 重写: {original_url} -> {url}")
+            return original_request(method, url, *args, **kwargs)
 
-            if url != original_url:
-                logger.debug(f"[EfinancePatch] URL 重写: {original_url} -> {url}")
-            return original_get(url, *args, **kwargs)
-
-        ef.shared.session.get = patched_get
+        ef.shared.session.request = patched_request
         logger.info(f"[EfinancePatch] 已将 efinance API 主机替换为: {target_host}")
 
     except Exception as e:
