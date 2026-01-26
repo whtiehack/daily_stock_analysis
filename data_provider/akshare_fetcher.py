@@ -55,21 +55,27 @@ logger = logging.getLogger(__name__)
 
 
 # === 东方财富 API URL 配置（akshare）===
-# akshare 1.18.x 版本中 stock_zh_a_hist 等函数直接使用 requests.get()
+# akshare 1.18.x 版本中有两种请求方式，需要分别 patch
 def _patch_akshare_api_host():
     """
     Monkey patch akshare 库的 API 主机地址
 
-    akshare 1.18.x 版本中，stock_zh_a_hist 等函数直接使用 requests.get()，
-    需要 patch 对应模块中的 requests 对象
+    akshare 1.18.x 版本中有两种请求方式：
+    1. stock_zh_a_hist 等函数直接使用 requests.get()
+    2. stock_zh_a_spot_em 等函数使用 fetch_paginated_data -> request_with_retry
+       (request_with_retry 内部创建新 Session，调用 session.get)
 
-    注意：
-    1. 只有配置了 EASTMONEY_API_HOST 环境变量时才执行 patch
-    2. 需要 patch akshare 各模块中导入的 requests 对象
+    需要同时 patch：
+    - requests.get（针对方式1）
+    - akshare.utils.request.request_with_retry（针对方式2）
+
+    注意：只有配置了 EASTMONEY_API_HOST 环境变量时才执行 patch
     """
     try:
         import re
         import requests
+        import akshare.utils.request as ak_request
+        import akshare.utils.func as ak_func
         from src.config import get_config
 
         config = get_config()
@@ -79,45 +85,38 @@ def _patch_akshare_api_host():
         if not target_host:
             return
 
-        # 保存原始的 requests.get
-        original_get = requests.get
-
-        def patched_get(url, *args, **kwargs):
-            original_url = url
-            # 替换所有东方财富 API 域名
-            # 格式: NN.push2.eastmoney.com, push2his.eastmoney.com, push2ex.eastmoney.com
+        def rewrite_url(url):
+            """统一的 URL 重写逻辑"""
             if 'eastmoney.com' in url:
-                url = re.sub(
+                new_url = re.sub(
                     r'(\d+\.)?push2(his|ex)?\.eastmoney\.com',
                     target_host,
                     url
                 )
-                if url != original_url:
-                    logger.debug(f"[AksharePatch] URL 重写: {original_url} -> {url}")
-            return original_get(url, *args, **kwargs)
+                if new_url != url:
+                    logger.debug(f"[AksharePatch] URL 重写: {url} -> {new_url}")
+                return new_url
+            return url
 
-        # Patch requests.get 全局（影响所有使用 requests 的代码）
+        # === Patch 1: requests.get（用于 stock_zh_a_hist 等）===
+        original_get = requests.get
+
+        def patched_get(url, *args, **kwargs):
+            return original_get(rewrite_url(url), *args, **kwargs)
+
         requests.get = patched_get
 
-        # 同时 patch akshare 各模块中已导入的 requests 对象
-        modules_to_patch = [
-            'akshare.stock_feature.stock_hist_em',      # stock_zh_a_hist
-            'akshare.stock_feature.stock_zh_a_spot_em', # stock_zh_a_spot_em (如果存在)
-            'akshare.fund.fund_etf_em',                 # fund_etf_hist_em
-            'akshare.stock.stock_hk_em',                # stock_hk_hist (如果存在)
-        ]
+        # === Patch 2: request_with_retry（用于 stock_zh_a_spot_em 等）===
+        original_request_with_retry = ak_request.request_with_retry
 
-        import sys
-        patched_count = 0
-        for module_name in modules_to_patch:
-            if module_name in sys.modules:
-                module = sys.modules[module_name]
-                if hasattr(module, 'requests'):
-                    module.requests.get = patched_get
-                    patched_count += 1
-                    logger.debug(f"[AksharePatch] 已 patch 模块: {module_name}")
+        def patched_request_with_retry(url, params=None, timeout=15, max_retries=3, **kwargs):
+            return original_request_with_retry(rewrite_url(url), params, timeout, max_retries, **kwargs)
 
-        logger.info(f"[AksharePatch] 已将东财 API 主机替换为: {target_host} (全局 + {patched_count} 个模块)")
+        # 同时替换 request 和 func 模块的引用
+        ak_request.request_with_retry = patched_request_with_retry
+        ak_func.request_with_retry = patched_request_with_retry
+
+        logger.info(f"[AksharePatch] 已将东财 API 主机替换为: {target_host} (requests.get + request_with_retry)")
 
     except Exception as e:
         logger.warning(f"[AksharePatch] Monkey patch 失败: {e}")
