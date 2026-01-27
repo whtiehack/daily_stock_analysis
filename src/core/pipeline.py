@@ -14,17 +14,16 @@ A股自选股智能分析系统 - 核心分析流水线
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, date
-from pathlib import Path
+from datetime import date
 from typing import List, Dict, Any, Optional, Tuple
 
 from src.config import get_config, Config
-from src.storage import get_db, DatabaseManager
+from src.storage import get_db
 from data_provider import DataFetcherManager
-from data_provider.realtime_types import UnifiedRealtimeQuote, ChipDistribution
+from data_provider.realtime_types import ChipDistribution
 from src.analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP
 from src.notification import NotificationService, NotificationChannel
-from src.search_service import SearchService, SearchResponse
+from src.search_service import SearchService
 from src.enums import ReportType
 from src.stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
 from bot.models import BotMessage
@@ -237,8 +236,16 @@ class StockAnalysisPipeline:
             context = self.db.get_analysis_context(code)
             
             if context is None:
-                logger.warning(f"[{code}] 无法获取分析上下文，跳过分析")
-                return None
+                logger.warning(f"[{code}] 无法获取历史行情数据，将仅基于新闻和实时行情分析")
+                from datetime import date
+                context = {
+                    'code': code,
+                    'stock_name': stock_name,
+                    'date': date.today().isoformat(),
+                    'data_missing': True,
+                    'today': {},
+                    'yesterday': {}
+                }
             
             # Step 6: 增强上下文数据（添加实时行情、筹码、趋势分析结果、股票名称）
             enhanced_context = self._enhance_context(
@@ -536,7 +543,7 @@ class StockAnalysisPipeline:
             success_count = len(results)
             fail_count = len(stock_codes) - success_count
         
-        logger.info(f"===== 分析完成 =====")
+        logger.info("===== 分析完成 =====")
         logger.info(f"成功: {success_count}, 失败: {fail_count}, 耗时: {elapsed_time:.2f} 秒")
         
         # 发送通知（单股推送模式下跳过汇总推送，避免重复）
@@ -600,6 +607,12 @@ class StockAnalysisPipeline:
                         non_wechat_success = self.notifier.send_to_email(report) or non_wechat_success
                     elif channel == NotificationChannel.CUSTOM:
                         non_wechat_success = self.notifier.send_to_custom(report) or non_wechat_success
+                    elif channel == NotificationChannel.PUSHPLUS:
+                        non_wechat_success = self.notifier.send_to_pushplus(report) or non_wechat_success
+                    elif channel == NotificationChannel.DISCORD:
+                        non_wechat_success = self.notifier.send_to_discord(report) or non_wechat_success
+                    elif channel == NotificationChannel.PUSHOVER:
+                        non_wechat_success = self.notifier.send_to_pushover(report) or non_wechat_success
                     else:
                         logger.warning(f"未知通知渠道: {channel}")
 
