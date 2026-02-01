@@ -71,3 +71,7 @@ verify_*.py
 # Trae IDE
 .trae/
 .ace-tool/
+
+# ignore claude files
+.claude/
+CLAUDE.md
