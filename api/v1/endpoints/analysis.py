@@ -146,6 +146,7 @@ def _handle_async_analysis(
             stock_name=None,  # 名称在分析过程中获取
             report_type=request.report_type,
             force_refresh=request.force_refresh,
+            notify=request.notify,
         )
         
         # 返回 202 Accepted
@@ -193,7 +194,8 @@ def _handle_sync_analysis(
             stock_code=stock_code,
             report_type=request.report_type,
             force_refresh=request.force_refresh,
-            query_id=query_id
+            query_id=query_id,
+            send_notification=request.notify,
         )
 
         if result is None:

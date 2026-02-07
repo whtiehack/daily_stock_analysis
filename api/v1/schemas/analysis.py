@@ -50,6 +50,10 @@ class AnalyzeRequest(BaseModel):
         False,
         description="是否使用异步模式"
     )
+    notify: bool = Field(
+        True,
+        description="是否发送推送通知（Telegram/企业微信等）"
+    )
     
     class Config:
         json_schema_extra = {

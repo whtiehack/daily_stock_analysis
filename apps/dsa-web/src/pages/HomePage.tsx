@@ -22,6 +22,7 @@ const HomePage: React.FC = () => {
   const [stockCode, setStockCode] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [inputError, setInputError] = useState<string>();
+  const [notifyEnabled, setNotifyEnabled] = useState(true);
 
 // 历史列表状态
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
@@ -190,6 +191,7 @@ const HomePage: React.FC = () => {
       const response = await analysisApi.analyzeAsync({
         stockCode: normalized,
         reportType: 'detailed',
+        notify: notifyEnabled,
       });
 
       // 清空输入框
@@ -247,6 +249,15 @@ const HomePage: React.FC = () => {
               <p className="absolute -bottom-4 left-0 text-xs text-warning">{duplicateError}</p>
             )}
           </div>
+          <label className="flex items-center gap-1.5 text-xs text-secondary cursor-pointer select-none whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={notifyEnabled}
+              onChange={(e) => setNotifyEnabled(e.target.checked)}
+              className="accent-cyan w-3.5 h-3.5"
+            />
+            推送通知
+          </label>
           <button
             type="button"
             onClick={handleAnalyze}

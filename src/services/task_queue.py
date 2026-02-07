@@ -53,6 +53,7 @@ class TaskInfo:
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     report_type: str = "detailed"
+    notify: bool = True
     created_at: datetime = field(default_factory=datetime.now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
@@ -85,6 +86,7 @@ class TaskInfo:
             result=self.result,
             error=self.error,
             report_type=self.report_type,
+            notify=self.notify,
             created_at=self.created_at,
             started_at=self.started_at,
             completed_at=self.completed_at,
@@ -199,6 +201,7 @@ class AnalysisTaskQueue:
         stock_name: Optional[str] = None,
         report_type: str = "detailed",
         force_refresh: bool = False,
+        notify: bool = True,
     ) -> TaskInfo:
         """
         提交分析任务
@@ -230,6 +233,7 @@ class AnalysisTaskQueue:
                 status=TaskStatus.PENDING,
                 message="任务已加入队列",
                 report_type=report_type,
+                notify=notify,
             )
             
             # 注册任务
@@ -361,6 +365,7 @@ class AnalysisTaskQueue:
                 report_type=report_type,
                 force_refresh=force_refresh,
                 query_id=task_id,
+                send_notification=task.notify,
             )
             
             if result:
