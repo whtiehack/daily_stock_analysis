@@ -534,7 +534,7 @@ def main() -> int:
             run_with_schedule(
                 task=scheduled_task,
                 schedule_time=config.schedule_time,
-                run_immediately=True  # 启动时先执行一次
+                run_immediately=False  # 启动时不立即执行，等待定时触发
             )
             return 0
         
